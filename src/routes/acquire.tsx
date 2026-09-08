@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { createFileRoute as _unused } from "@tanstack/react-router";
+
 import { GameShell, PageIntro } from "@/components/game/shell";
 import {
   CatalogueCard,

@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AcquireRouteImport } from './routes/acquire'
+import { Route as BusinessesRouteImport } from './routes/businesses'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcquireRoute = AcquireRouteImport.update({
+  id: '/acquire',
+  path: '/acquire',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessesRoute = BusinessesRouteImport.update({
+  id: '/businesses',
+  path: '/businesses',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/acquire': typeof AcquireRoute
+  '/businesses': typeof BusinessesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/acquire': typeof AcquireRoute
+  '/businesses': typeof BusinessesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/acquire': typeof AcquireRoute
+  '/businesses': typeof BusinessesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/acquire' | '/businesses'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/acquire' | '/businesses'
+  id: '__root__' | '/' | '/acquire' | '/businesses'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AcquireRoute: typeof AcquireRoute
+  BusinessesRoute: typeof BusinessesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/acquire': {
+      id: '/acquire'
+      path: '/acquire'
+      fullPath: '/acquire'
+      preLoaderRoute: typeof AcquireRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/businesses': {
+      id: '/businesses'
+      path: '/businesses'
+      fullPath: '/businesses'
+      preLoaderRoute: typeof BusinessesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AcquireRoute: AcquireRoute,
+  BusinessesRoute: BusinessesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
