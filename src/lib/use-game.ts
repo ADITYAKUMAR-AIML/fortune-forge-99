@@ -11,10 +11,10 @@ import {
   triggerRandomEvent,
   upgradeBusiness,
 } from "@/game/engine";
-import { depositMoney, withdrawMoney } from "@/game/economy";
-import { loadGame, resetGame, saveGame } from "@/game/save";
-import { createInitialState } from "@/game/state";
-import type { GameState } from "@/game/types";
+import { depositMoney, recordTransaction, withdrawMoney } from "@/game/economy";
+import { exportSave, importSave, loadGame, resetGame, saveGame } from "@/game/save";
+import { createInitialState, recalculateNetWorth, setMarketCondition } from "@/game/state";
+import type { GameState, MarketCondition } from "@/game/types";
 
 export function useGame() {
   const [state, setState] = useState<GameState>(() => createInitialState());
@@ -30,12 +30,17 @@ export function useGame() {
   }, [state, hydrated]);
 
   const mutate = useCallback((fn: (draft: GameState) => unknown) => {
+    let outcome: unknown;
     setState((prev) => {
       const draft: GameState = {
         ...prev,
         player: { ...prev.player },
-        ownedBusinesses: { ...prev.ownedBusinesses },
-        stockPortfolio: { ...prev.stockPortfolio },
+        ownedBusinesses: Object.fromEntries(
+          Object.entries(prev.ownedBusinesses).map(([id, value]) => [id, { ...value }]),
+        ),
+        stockPortfolio: Object.fromEntries(
+          Object.entries(prev.stockPortfolio).map(([id, value]) => [id, { ...value }]),
+        ),
         marketPrices: { ...prev.marketPrices },
         ownedCharacters: [...prev.ownedCharacters],
         ownedProperties: [...prev.ownedProperties],
@@ -45,26 +50,63 @@ export function useGame() {
         eventHistory: [...prev.eventHistory],
         transactionHistory: [...prev.transactionHistory],
       };
-      fn(draft);
+      outcome = fn(draft);
       return draft;
     });
+    return outcome;
   }, []);
+
+  const act = useCallback(
+    (fn: (draft: GameState) => unknown) => Boolean(mutate(fn)),
+    [mutate],
+  );
 
   return {
     state,
     hydrated,
-    nextDay: () => mutate((d) => advanceDay(d)),
-    randomEvent: () => mutate((d) => triggerRandomEvent(d)),
-    buyBusiness: (id: string) => mutate((d) => purchaseBusiness(d, id)),
-    upgradeBusiness: (id: string) => mutate((d) => upgradeBusiness(d, id)),
-    buyProperty: (id: string) => mutate((d) => purchaseProperty(d, id)),
-    buyAsset: (id: string) => mutate((d) => purchaseAsset(d, id)),
-    buyCharacter: (id: string) => mutate((d) => purchaseCharacter(d, id)),
-    buyStock: (id: string, shares: number) => mutate((d) => buyStock(d, id, shares)),
-    sellStock: (id: string, shares: number) => mutate((d) => sellStock(d, id, shares)),
-    invest: (id: string, amount: number) => mutate((d) => startInvestment(d, id, amount)),
-    deposit: (amount: number) => mutate((d) => depositMoney(d, amount)),
-    withdraw: (amount: number) => mutate((d) => withdrawMoney(d, amount)),
-    reset: () => setState(resetGame()),
+    nextDay: () => act((d) => advanceDay(d)),
+    randomEvent: () => act((d) => triggerRandomEvent(d)),
+    buyBusiness: (id: string) => act((d) => purchaseBusiness(d, id)),
+    upgradeBusiness: (id: string) => act((d) => upgradeBusiness(d, id)),
+    buyProperty: (id: string) => act((d) => purchaseProperty(d, id)),
+    buyAsset: (id: string) => act((d) => purchaseAsset(d, id)),
+    buyCharacter: (id: string) => act((d) => purchaseCharacter(d, id)),
+    buyStock: (id: string, shares: number) => act((d) => buyStock(d, id, shares)),
+    sellStock: (id: string, shares: number) => act((d) => sellStock(d, id, shares)),
+    invest: (id: string, amount: number) => act((d) => startInvestment(d, id, amount)),
+    deposit: (amount: number) => act((d) => depositMoney(d, amount)),
+    withdraw: (amount: number) => act((d) => withdrawMoney(d, amount)),
+    /** DEBUG only: force a market condition. */
+    forceMarket: (condition: MarketCondition) =>
+      act((d) => {
+        setMarketCondition(d, condition);
+        return true;
+      }),
+    /** DEBUG only: add or remove cash, still logged as a transaction. */
+    adjustMoney: (amount: number) =>
+      act((d) => {
+        if (!Number.isFinite(amount) || amount === 0) return false;
+        const applied = amount < 0 ? -Math.min(d.player.cash, Math.abs(amount)) : amount;
+        if (applied === 0) return false;
+        d.player.cash += applied;
+        recordTransaction(d, "debug_adjustment", applied, "DEBUG money adjustment");
+        recalculateNetWorth(d);
+        return true;
+      }),
+    exportSave: () => {
+      exportSave(state);
+      return true;
+    },
+    importSave: async (file: File) => {
+      const imported = await importSave(file);
+      setState(imported);
+      return true;
+    },
+    reset: () => {
+      setState(resetGame());
+      return true;
+    },
   };
 }
+
+export type GameApi = ReturnType<typeof useGame>;
